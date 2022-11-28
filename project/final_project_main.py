@@ -23,7 +23,7 @@ def get_qr_point_to_world (msg):
     global dist
 
     if msg.pose.position.x != 0 and msg.pose.position.x != 0 and msg.pose.position.x != 0:
-        entered = rospy.get_time()
+        entered = 1
         #get pose relative to the odom topic, same used for navigation
         pose = msg
         pose.header.frame_id = "camera_optical_link"
@@ -92,6 +92,7 @@ def get_qr_data(msg):
     global matrix
     global entered
     global rotate
+    global looking
 
 
     if msg.data != "":
@@ -104,94 +105,141 @@ def get_qr_data(msg):
         #print(message[0])
 
         if tryGetToPoints == 1:
+            print points[0][3], int(data[4])
             if points[0][3] != int(data[4]):
                 rotate = 1
             else:
                 rotate = 0
 
+        if finding == True:
+            if qr_id != int(data[4]):
+                rotate = 1
+            else:
+                rotate = 0
 
-        if message[int(data[4])-1] == "":
-            print "entering here\n"
-            stop = True
-            #ensure_robot_is_stopped()
-            '''rate = rospy.Rate(60)
-            while rospy.get_time() - entered > 2:
-                rate.sleep()'''
-            #wait for results
-            print "focus\n"
-            #rospy.sleep(10)
+        if entered == 1 and dist != 0:
+            if message[int(data[4])-1] == "":
+                print "entering here\n"
+                stop = True
+                #ensure_robot_is_stopped()
+                '''rate = rospy.Rate(60)
+                while rospy.get_time() - entered > 2:
+                    rate.sleep()'''
+                #wait for results
+                print "focus\n"
+                #rospy.sleep(10)
 
-            print "robot stopped - seeing points\n"
-            print "dist"
-            print dist
+                print "robot stopped - seeing points\n"
+                print "dist"
+                print dist
 
-            if tryGetToPoints == 0:
-                print "plans\n"
-                points = get_plan_points_to_qr(x_world, y_world, matrix)
-                points[0][3] = int(data[4])
-                points[1][3] = int(data[4])
-                points[2][3] = int(data[4])
-                tryGetToPoints = 1
-            elif tryGetToPoints == 2:            
-                '''if dist < 1.5 or dist > 0.6:x
-                    print "valid\n"
-                    print x_world, y_world
-                    print "printed\n"
-                    rightPosition[int(data[4])-1] = 1'''
+                #enters here only when no longer wandering
+                if looking == True:
+                    message[int(data[4])-1] = m[0]
+                    #save qr positions
+                    for l in range(2):
+                        spot = -1
+                        for i in range(5):
+                            #last element having: a '0' means nothing written in the line, a '-1' means qr position 
+                            #written but haven't been there yet, a '1' means qr position written and have been there
+                            if qr_positions[i][0] == float(data[l*2]) and qr_positions[i][1] == float(data[1+(l*2)]):
+                                if l == 0:
+                                    qr_positions[i][2] = 1
+                                break
+                            if qr_positions[i][2] == 0:
+                                spot = i
 
-                #rightPosition keeps track if the position got from the qr code is valid or not. To 
-                #admit the qr code position is valid the robot will be taken to 0.6-1.5 meters of distance from the target.
-                #if rightPosition[int(data[4])-1] == 1:
-                if still_on_first_two_qr < 2:
-                    saved_pos[still_on_first_two_qr][0] = x_world
-                    saved_pos[still_on_first_two_qr][1] = y_world
-                    saved_pos[still_on_first_two_qr][2] = float(data[0])
-                    saved_pos[still_on_first_two_qr][3] = float(data[1])
-                    saved_pos[still_on_first_two_qr][4] = int(data[4])
-                    still_on_first_two_qr+=1
-                #save qr message to the message array that saves all messages from all qr codes 
-                message[int(data[4])-1] = m[0]
+                            if i == 4:
+                                if spot != -1:
+                                    qr_positions[spot][0] = float(data[l*2])
+                                    qr_positions[spot][1] = float(data[1+(l*2)])
+                                    if l == 0:
+                                        qr_positions[spot][2] = 1
+                                        qr_positions[spot][3] = int(data[4])
+                                    else:
+                                        qr_positions[spot][2] = -1
+                                        if int(data[4]) == 5:
+                                            qr_positions[spot][3] = 1
+                                        else:
+                                            qr_positions[spot][3] = int(data[4]) + 1
+                else:
+                    #enters here only wandering
+                    if tryGetToPoints == 0:
+                        print "plans\n"
+                        points = get_plan_points_to_qr(x_world, y_world, matrix)
+                        points[0][3] = int(data[4])
+                        points[1][3] = int(data[4])
+                        points[2][3] = int(data[4])
+                        tryGetToPoints = 1
+                    elif tryGetToPoints == 2:            
+                        '''if dist < 1.5 or dist > 0.6:
+                            print "valid\n"
+                            print x_world, y_world
+                            print "printed\n"
+                            rightPosition[int(data[4])-1] = 1'''
 
-                #save qr positions
-                for l in range(2):
-                    spot = -1
-                    for i in range(5):
-                        #last element having: a '0' means nothing written in the line, a '-1' means qr position 
-                        #written but haven't been there yet, a '1' means qr position written and have been there
-                        if qr_positions[i][0] == float(data[l*2]) and qr_positions[i][1] == float(data[1+(l*2)]):
-                            if l == 0:
-                                qr_positions[i][2] = 1
-                            break
-                        if qr_positions[i][2] == 0:
-                            spot = i
+                        #rightPosition keeps track if the position got from the qr code is valid or not. To 
+                        #admit the qr code position is valid the robot will be taken to 0.6-1.5 meters of distance from the target.
+                        #if rightPosition[int(data[4])-1] == 1:
+                        if still_on_first_two_qr < 2:
+                            saved_pos[still_on_first_two_qr][0] = x_world
+                            saved_pos[still_on_first_two_qr][1] = y_world
+                            saved_pos[still_on_first_two_qr][2] = float(data[0])
+                            saved_pos[still_on_first_two_qr][3] = float(data[1])
+                            saved_pos[still_on_first_two_qr][4] = int(data[4])
+                            still_on_first_two_qr+=1
+                        #save qr message to the message array that saves all messages from all qr codes 
+                        message[int(data[4])-1] = m[0]
 
-                        if i == 4:
-                            if spot != -1:
-                                qr_positions[spot][0] = float(data[l*2])
-                                qr_positions[spot][1] = float(data[1+(l*2)])
-                                qr_positions[spot][2] = -1
+                        #save qr positions
+                        for l in range(2):
+                            spot = -1
+                            for i in range(5):
+                                #last element having: a '0' means nothing written in the line, a '-1' means qr position 
+                                #written but haven't been there yet, a '1' means qr position written and have been there
+                                if qr_positions[i][0] == float(data[l*2]) and qr_positions[i][1] == float(data[1+(l*2)]):
+                                    if l == 0:
+                                        qr_positions[i][2] = 1
+                                    break
+                                if qr_positions[i][2] == 0:
+                                    spot = i
 
-                if still_on_first_two_qr == 2:
-                    still_on_first_two_qr+=1
+                                if i == 4:
+                                    if spot != -1:
+                                        qr_positions[spot][0] = float(data[l*2])
+                                        qr_positions[spot][1] = float(data[1+(l*2)])
+                                        if l == 0:
+                                            qr_positions[spot][2] = 1
+                                            qr_positions[spot][3] = int(data[4])
+                                        else:
+                                            qr_positions[spot][2] = -1
+                                            if int(data[4]) == 5:
+                                                qr_positions[spot][3] = 1
+                                            else:
+                                                qr_positions[spot][3] = int(data[4]) + 1
 
-                    #get hidden frame
-                    getHiddenFrame = 1
-                elif still_on_first_two_qr < 2:
-                    stop = False
 
-                print "sleeping\n"
-                #rospy.sleep(100)
-                print "stoped sleeping\n"
+                        if still_on_first_two_qr == 2:
+                            still_on_first_two_qr+=1
 
-                '''else:
-                    #robot is wandering make it stop
-                    stop = True
+                            #get hidden frame
+                            getHiddenFrame = 1
+                        elif still_on_first_two_qr < 2:
+                            stop = False
 
-                    points = get_plan_points_to_qr(x_world, y_world, matrix)
-                    #tryGetToPoints = True'''
+                        print "sleeping\n"
+                        #rospy.sleep(100)
+                        print "stoped sleeping\n"
+
+                        '''else:
+                            #robot is wandering make it stop
+                            stop = True
+
+                            points = get_plan_points_to_qr(x_world, y_world, matrix)
+                            #tryGetToPoints = True'''
 
     else:
-        if tryGetToPoints == 1:
+        if tryGetToPoints == 1 or finding == True:
             rotate = 1
 
 
@@ -271,6 +319,16 @@ def test_plan(goal_x, goal_y):
 def move_to_goal(goal_x, goal_y, angle, wait):
     global rotate
 
+    if looking == True:
+        ok = 0
+        res = test_plan(goal_x, goal_y)
+        if res != 1:
+            if len(res.plan.poses) > 0:
+                ok = 1
+        if ok == 0:
+            return 1
+
+
     goal_pose = MoveBaseGoal()
     goal_pose.target_pose.header.frame_id = 'map'
     goal_pose.target_pose.pose.position.x = goal_x
@@ -288,7 +346,24 @@ def move_to_goal(goal_x, goal_y, angle, wait):
 
     if tryGetToPoints == 1:
         #wait for results
-        rospy.sleep(0.5)
+        rospy.sleep(2)
+        if rotate == 1:          
+            for i in range(7):
+                angle += 45
+                quaternions = tf.transformations.quaternion_from_euler(0 , 0, np.deg2rad(angle))
+                goal_pose.target_pose.pose.orientation.x = quaternions[0]
+                goal_pose.target_pose.pose.orientation.y = quaternions[1]
+                goal_pose.target_pose.pose.orientation.z = quaternions[2]
+                goal_pose.target_pose.pose.orientation.w = quaternions[3]
+                client.send_goal(goal_pose)
+                client.wait_for_result()
+                rospy.sleep(0.5)
+                if rotate == 0:
+                    break
+
+    if finding == True:
+        #wait for results
+        rospy.sleep(2)
         if rotate == 1:          
             for i in range(7):
                 angle += 45
@@ -452,6 +527,7 @@ def get_next_qr_position(angle, Tx, Ty):
         if qr_positions[i][2] == -1:
             goal_x = qr_positions[i][0]
             goal_y = qr_positions[i][1]
+            d = qr_positions[i][3]
             break
 
     print"qr_positions"
@@ -459,7 +535,22 @@ def get_next_qr_position(angle, Tx, Ty):
 
     goal_x, goal_y = get_position_to_world(goal_x,goal_y, angle, Tx, Ty)
 
-    return goal_x, goal_y
+    return goal_x, goal_y, d
+
+
+def  confirm_qr(goal_x, goal_y):
+    global qr_positions
+    found = 0
+
+    #get next qr position from one of the already stored in qr_positions. The ones not visited yet
+    #are marked with -1 as already mentioned above
+    for i in range(5):
+        if qr_positions[i][0] == goal_x and qr_positions[i][1] == goal_y:
+            if qr_positions[i][2] == 1:
+                found = 1
+                break
+
+    return found
 
 
 
@@ -474,6 +565,13 @@ def check_qr_found():
 
     return num
 
+def points_in_circumference(goal_x, goal_y):
+    pi = math.pi
+    r = 1.2
+    n = 8
+
+    return [(math.cos(2*pi/n*x)*r + goal_x,math.sin(2*pi/n*x)*r + goal_y) for x in range(0,n)]
+
 
 if __name__ == '__main__':
     try:
@@ -486,7 +584,7 @@ if __name__ == '__main__':
         y_world = 0
         message = ["","","","",""]
         still_on_first_two_qr = 0
-        qr_positions = [[0,0,0], [0,0,0], [0,0,0], [0,0,0], [0,0,0]]
+        qr_positions = [[0,0,0,0], [0,0,0,0], [0,0,0,0], [0,0,0,0], [0,0,0,0]]
         getHiddenFrame = 0
         rightPosition = [[0], [0], [0], [0], [0]]
         entered = 0
@@ -494,15 +592,16 @@ if __name__ == '__main__':
         points = [[0,0,0,0], [0,0,0,0], [0,0,0,0]]
         tryGetToPoints = 0
         dist = 0
-        wandering = True
+        global looking, finding, qr_id
+        looking = False
+        finding = False
         rotate = 0
         ''' .......................................... '''
-
          
         pose = geometry_msgs.msg.PoseStamped()
 
         rospy.init_node( 'final_project_node' )
-        rospy.sleep(3)
+        rospy.sleep(2)
         listener = tf.TransformListener()
 
         # subscribe to the position of the qr_code
@@ -522,23 +621,41 @@ if __name__ == '__main__':
 
         #search for the first 2 qr codes
         wander()
-        wandering = False
 
         print "---getting hidden frame----"
         angle,Tx,Ty = get_hidden_frame()
 
+        looking = True
         qr_found = 2
         while qr_found < 5:
-            goal_x, goal_y = get_next_qr_position(angle, Tx, Ty)
+            goal_x, goal_y, qr_id = get_next_qr_position(angle, Tx, Ty)
             ensure_robot_is_stopped()
-            print(goal_x, goal_y)
 
             #executes plan
             move_to_goal(goal_x, goal_y, 90, 1)
 
-            rospy.spin()
+            #confirm whether qr was found or not
+            rospy.sleep(0.5)
+            found = confirm_qr(goal_x, goal_y)
+
+            if found == 0:
+                #get points in circumference with distance from center equal to 1.2
+                circ = points_in_circumference(goal_x,goal_y)
+                finding = True
+                for i in range(8):
+                    move_to_goal(circ[i][0], circ[i][1], 90, 1)
+
+                    #confirm whether qr was found or not
+                    rospy.sleep(0.5)
+                    found = confirm_qr(goal_x, goal_y)
+                    if found == 1:
+                        break
+
+                print "could't find qr code with circumference points ----\n"
+                finding = False
 
             qr_found = check_qr_found()
+            print ("%d qr codes found", qr_found)
 
         print"All Qr_codes found - exiting"
         print"------Message concatenated-----"
